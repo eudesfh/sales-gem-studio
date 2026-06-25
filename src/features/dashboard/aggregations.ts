@@ -34,15 +34,29 @@ export function topProducts(rows: SaleRowDTO[], n = 8) {
     .slice(0, n);
 }
 
-export function byMonth(rows: SaleRowDTO[]) {
+export interface MonthPoint {
+  mes: string;
+  valor: number | null;
+  acumulado: number | null;
+}
+
+export function byMonth(rows: SaleRowDTO[]): MonthPoint[] {
   const map = new Map<string, number>();
   for (const r of rows) {
     const mes = r.data.slice(0, 7); // YYYY-MM
     map.set(mes, (map.get(mes) ?? 0) + r.valor_total);
   }
-  return Array.from(map, ([mes, valor]) => ({ mes, valor })).sort((a, b) =>
-    a.mes.localeCompare(b.mes),
+  const monthly = Array.from(map, ([mes, valor]) => ({ mes, valor })).sort(
+    (a, b) => a.mes.localeCompare(b.mes),
   );
+  const total = monthly.reduce((s, m) => s + m.valor, 0);
+  const points: MonthPoint[] = monthly.map((m) => ({
+    mes: m.mes,
+    valor: m.valor,
+    acumulado: null,
+  }));
+  points.push({ mes: "Total", valor: null, acumulado: total });
+  return points;
 }
 
 export function byRegion(rows: SaleRowDTO[]) {
