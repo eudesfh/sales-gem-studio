@@ -14,11 +14,13 @@
  */
 import type { InventoryMovementRow } from "./csv-source.server";
 
+
 export async function readInventoryFromDatabase(): Promise<InventoryMovementRow[]> {
   const dbUrl = process.env.DATABASE_URL;
   const dbConnStr = process.env.DB_CONNECTION_STRING;
+  const dbServer = process.env.DB_SERVER;
 
-  if (!dbUrl && !dbConnStr) {
+  if (!dbUrl && !dbConnStr && !dbServer) {
     // No database configured. Return empty array, which will make the UI fall back
     // or notify the user to configure variables.
     return [];
@@ -52,10 +54,49 @@ export async function readInventoryFromDatabase(): Promise<InventoryMovementRow[
       })) as InventoryMovementRow[];
     }
 
-    // 2. SQL Server Support (Alternative connection string)
-    if (dbConnStr || (dbUrl && dbUrl.includes("sqlserver"))) {
+    // 2. SQL Server Support (Direct Host/Port/Instance Config or Connection String)
+    if (dbConnStr || dbServer || (dbUrl && dbUrl.includes("sqlserver"))) {
       const mssql = await import("mssql");
-      const pool = await mssql.default.connect(dbConnStr || dbUrl || "");
+      
+      let config: any = {};
+
+      if (dbServer) {
+        // Parse host and instance name if backslash exists (e.g. server,3315\INSTANCE)
+        let host = dbServer;
+        let instanceName: string | undefined = undefined;
+
+        if (host.includes("\\")) {
+          const parts = host.split("\\");
+          host = parts[0];
+          instanceName = parts[1];
+        }
+
+        if (host.includes(",")) {
+          const parts = host.split(",");
+          host = parts[0];
+        }
+
+        config = {
+          server: host,
+          port: Number(process.env.DB_PORT || 1433),
+          database: process.env.DB_NAME,
+          user: process.env.DB_USER,
+          password: process.env.DB_PASSWORD,
+          options: {
+            encrypt: process.env.DB_ENCRYPT === "true" || process.env.DB_ENCRYPT === "1" || process.env.DB_ENCRYPT === undefined,
+            trustServerCertificate: process.env.DB_TRUST_CERT === "true" || process.env.DB_TRUST_CERT === "1" || process.env.DB_TRUST_CERT === undefined,
+          }
+        };
+
+        if (instanceName) {
+          config.options.instanceName = instanceName;
+        }
+      } else {
+        // Fallback to connection string
+        config = dbConnStr || dbUrl || "";
+      }
+
+      const pool = await mssql.default.connect(config);
       const { recordset } = await pool.request().query(`
         SELECT 
           key_centro, nome_centro, empresa, nome_empreendimento,
@@ -85,4 +126,5 @@ export async function readInventoryFromDatabase(): Promise<InventoryMovementRow[
     throw error;
   }
 }
+
 

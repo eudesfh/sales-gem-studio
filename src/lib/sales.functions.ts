@@ -45,8 +45,10 @@ export const getSales = createServerFn({ method: "GET" })
     const isDbConfigured = !!(
       process.env.DATABASE_URL ||
       process.env.DB_HOST ||
-      process.env.DB_CONNECTION_STRING
+      process.env.DB_CONNECTION_STRING ||
+      process.env.DB_SERVER
     );
+
 
     const rows =
       data.source === "database"
