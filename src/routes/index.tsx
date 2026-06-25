@@ -116,12 +116,9 @@ function Dashboard() {
                 yKey="valor"
                 color="var(--chart-1)"
               />
-              <BarChartCard
-                title="Receita por mês"
+              <MonthlyTrendCard
+                title="Receita por mês (linha) + Acumulado (barra)"
                 data={months}
-                xKey="mes"
-                yKey="valor"
-                color="var(--chart-3)"
               />
             </section>
 
