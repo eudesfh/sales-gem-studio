@@ -1,73 +1,145 @@
-import type { SaleRowDTO } from "@/lib/sales.functions";
+import type { InventoryMovementRowDTO } from "@/lib/sales.functions";
 
-export interface Kpis {
-  receita: number;
-  pedidos: number;
-  itensVendidos: number;
-  ticketMedio: number;
+export interface InventoryKpis {
+  entradas: number;
+  saidas: number;
+  saldoAtual: number;
+  transferencias: number;
 }
 
-export function computeKpis(rows: SaleRowDTO[]): Kpis {
-  const receita = rows.reduce((s, r) => s + r.valor_total, 0);
-  const pedidos = rows.length;
-  const itensVendidos = rows.reduce((s, r) => s + r.quantidade, 0);
+export function computeInventoryKpis(rows: InventoryMovementRowDTO[]): InventoryKpis {
+  let entradas = 0;
+  let saidas = 0;
+  let transferencias = 0;
+
+  for (const r of rows) {
+    if (r.classe === "E") {
+      entradas += r.valor;
+    } else if (r.classe === "S") {
+      if (r.tipo_documento === "TRF" || r.tipo_movimento === "T") {
+        transferencias += r.valor;
+      } else {
+        saidas += r.valor;
+      }
+    }
+  }
+
   return {
-    receita,
-    pedidos,
-    itensVendidos,
-    ticketMedio: pedidos ? receita / pedidos : 0,
+    entradas,
+    saidas,
+    saldoAtual: entradas - saidas,
+    transferencias,
   };
 }
 
-export function byCategory(rows: SaleRowDTO[]) {
+export interface CategoryConsumption {
+  categoria: string;
+  valor: number;
+}
+
+export function byCategory(rows: InventoryMovementRowDTO[]): CategoryConsumption[] {
   const map = new Map<string, number>();
-  for (const r of rows) map.set(r.categoria, (map.get(r.categoria) ?? 0) + r.valor_total);
+  for (const r of rows) {
+    // Only count consumption (exits that are not transfers)
+    if (r.classe === "S" && r.tipo_documento !== "TRF" && r.tipo_movimento !== "T") {
+      map.set(r.titulo_grupo, (map.get(r.titulo_grupo) ?? 0) + r.valor);
+    }
+  }
   return Array.from(map, ([categoria, valor]) => ({ categoria, valor }))
     .sort((a, b) => b.valor - a.valor);
 }
 
-export function topProducts(rows: SaleRowDTO[], n = 8) {
-  const map = new Map<string, number>();
-  for (const r of rows) map.set(r.produto, (map.get(r.produto) ?? 0) + r.valor_total);
-  return Array.from(map, ([produto, valor]) => ({ produto, valor }))
-    .sort((a, b) => b.valor - a.valor)
-    .slice(0, n);
+export interface StockMaterial {
+  codigo: string;
+  descricao: string;
+  unidade: string;
+  quantidade: number;
+  valor: number;
 }
 
-export interface MonthPoint {
-  mes: string;
-  valor: number | null;
-  acumulado: number | null;
-}
-
-export function byMonth(rows: SaleRowDTO[]): MonthPoint[] {
-  const map = new Map<string, number>();
+export function computeStockMaterials(rows: InventoryMovementRowDTO[]): StockMaterial[] {
+  const map = new Map<string, { desc: string; und: string; qty: number; val: number }>();
+  
   for (const r of rows) {
-    const mes = r.data.slice(0, 7); // YYYY-MM
-    map.set(mes, (map.get(mes) ?? 0) + r.valor_total);
+    const existing = map.get(r.cod_insumo) ?? { desc: r.descricao_insumo, und: r.unidade, qty: 0, val: 0 };
+    
+    if (r.classe === "E") {
+      existing.qty += r.quantidade;
+      existing.val += r.valor;
+    } else if (r.classe === "S") {
+      existing.qty -= r.quantidade;
+      existing.val -= r.valor;
+    }
+    
+    map.set(r.cod_insumo, existing);
   }
-  const monthly = Array.from(map, ([mes, valor]) => ({ mes, valor })).sort(
+
+  return Array.from(map, ([codigo, info]) => ({
+    codigo,
+    descricao: info.desc,
+    unidade: info.und,
+    quantidade: Math.max(0, info.qty),
+    valor: Math.max(0, info.val),
+  })).sort((a, b) => b.valor - a.valor);
+}
+
+export interface MonthConsumptionPoint {
+  mes: string;
+  mesLabel: string;
+  valor: number;
+  percentageChange: number | null;
+}
+
+export function byMonthConsumption(rows: InventoryMovementRowDTO[]): MonthConsumptionPoint[] {
+  const map = new Map<string, number>();
+  
+  for (const r of rows) {
+    if (r.classe === "S" && r.tipo_documento !== "TRF" && r.tipo_movimento !== "T") {
+      const mes = r.data_movimento.slice(0, 7); // YYYY-MM
+      map.set(mes, (map.get(mes) ?? 0) + r.valor);
+    }
+  }
+
+  const sortedMonths = Array.from(map, ([mes, valor]) => ({ mes, valor })).sort(
     (a, b) => a.mes.localeCompare(b.mes),
   );
-  const total = monthly.reduce((s, m) => s + m.valor, 0);
-  const points: MonthPoint[] = monthly.map((m) => ({
-    mes: m.mes,
-    valor: m.valor,
-    acumulado: null,
-  }));
-  points.push({ mes: "Total", valor: null, acumulado: total });
-  return points;
-}
 
-export function byRegion(rows: SaleRowDTO[]) {
-  const map = new Map<string, number>();
-  for (const r of rows) map.set(r.regiao, (map.get(r.regiao) ?? 0) + r.valor_total);
-  return Array.from(map, ([regiao, valor]) => ({ regiao, valor })).sort(
-    (a, b) => b.valor - a.valor,
-  );
+  const monthsMapPT = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+
+  return sortedMonths.map((m, index) => {
+    const [year, month] = m.mes.split("-");
+    const mesIndex = parseInt(month, 10) - 1;
+    const mesLabel = monthsMapPT[mesIndex] || month;
+
+    let percentageChange: number | null = null;
+    if (index > 0) {
+      const prevVal = sortedMonths[index - 1].valor;
+      if (prevVal > 0) {
+        percentageChange = ((m.valor - prevVal) / prevVal) * 100;
+      }
+    }
+
+    return {
+      mes: m.mes,
+      mesLabel,
+      valor: m.valor,
+      percentageChange,
+    };
+  });
 }
 
 export const formatBRL = (n: number) =>
-  n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+  n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 2 });
 
-export const formatInt = (n: number) => n.toLocaleString("pt-BR");
+export const formatCompactBRL = (n: number) => {
+  if (n >= 1_000_000) {
+    return `R$ ${(n / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} Mi`;
+  }
+  if (n >= 1_000) {
+    return `R$ ${(n / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} Mil`;
+  }
+  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+};
+
+export const formatInt = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+

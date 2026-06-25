@@ -1,4 +1,4 @@
-# Dashboard de Vendas (estilo Power BI)
+# Dashboard de Movimentações de Estoque (estilo Power BI)
 
 Dashboard analítico construído com **TanStack Start** (React + Vite full-stack),
 **Recharts** para gráficos e **shadcn/ui** + **Tailwind v4** para a interface.
@@ -9,22 +9,23 @@ Dashboard analítico construído com **TanStack Start** (React + Vite full-stack
 .
 ├── public/
 │   └── data/
-│       └── vendas.csv              # base fictícia (240 registros)
+│       └── movimentacoes_estoque.csv # base simulando vw_fact_movimentacao_estoque
 ├── src/
 │   ├── server/                     # camada "backend" — só executa no servidor
-│   │   ├── csv-source.server.ts    # leitor da base CSV
-│   │   └── database-source.server.ts  # stub para conexão com banco
+│   │   ├── csv-source.server.ts    # leitor da base CSV de estoque
+│   │   └── database-source.server.ts # conexão com banco de dados real
 │   ├── lib/
 │   │   └── sales.functions.ts      # RPC (createServerFn) usado pelo frontend
 │   ├── features/
 │   │   └── dashboard/              # frontend do dashboard
-│   │       ├── aggregations.ts     # KPIs e agregações
+│   │       ├── aggregations.ts     # KPIs e agregações de estoque
 │   │       └── components/         # KpiCard, BarChartCard, DataSourceSelector
 │   ├── routes/                     # páginas (file-based routing)
 │   └── components/ui/              # shadcn/ui
 ├── .gitignore
 ├── package.json
-└── vite.config.ts
+├── vite.config.ts
+└── README.md
 ```
 
 > Observação: TanStack Start é full-stack em um único processo, então não há
@@ -32,27 +33,19 @@ Dashboard analítico construído com **TanStack Start** (React + Vite full-stack
 > `src/server/*.server.ts` (bloqueada no bundle do cliente) e é exposta ao
 > frontend por funções RPC em `src/lib/*.functions.ts`.
 
-## Adicionar uma nova fonte de dados (ex.: Postgres)
+## Adicionar uma nova fonte de dados (ex.: Postgres ou SQL Server)
 
-1. Instale o driver: `bun add pg`
-2. Implemente em `src/server/database-source.server.ts`:
-   ```ts
-   import { Pool } from "pg";
-   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-   export async function readSalesFromDatabase() {
-     const { rows } = await pool.query(
-       "SELECT data, produto, categoria, regiao, preco, quantidade, valor_total FROM vendas"
-     );
-     return rows;
-   }
+1. Instale o driver: `npm install pg` ou `npm install mssql`
+2. Defina as variáveis de ambiente no arquivo `.env`:
+   ```env
+   DATABASE_URL="postgresql://usuario:senha@host:porta/banco?sslmode=require"
+   # OU para SQL Server:
+   DB_CONNECTION_STRING="Server=seu-servidor.database.windows.net;Database=seu-db;User Id=usuario;Password=senha;Encrypt=true;"
    ```
-3. Em `src/lib/sales.functions.ts`, troque `available.database` para `true`.
-4. Defina `DATABASE_URL` nas variáveis de ambiente do servidor.
-
-O seletor de fonte no topo do dashboard passa a permitir alternar entre CSV
-e banco sem mexer no frontend.
+3. O servidor detectará automaticamente as variáveis de ambiente e habilitará a opção "Banco de dados" no seletor de fonte do topo, efetuando as consultas na view `vw_fact_movimentacao_estoque`.
 
 ## Scripts
 
-- `bun run dev` — ambiente de desenvolvimento
-- `bun run build` — build de produção
+- `npm run dev` — ambiente de desenvolvimento
+- `npm run build` — build de produção
+

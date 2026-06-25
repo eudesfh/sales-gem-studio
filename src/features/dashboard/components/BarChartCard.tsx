@@ -6,9 +6,10 @@ import {
   Tooltip,
   XAxis,
   YAxis,
+  LabelList,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatBRL } from "../aggregations";
+import { formatBRL, formatInt } from "../aggregations";
 
 interface Props {
   title: string;
@@ -28,20 +29,26 @@ export function BarChartCard({
   layout = "horizontal",
 }: Props) {
   const isVertical = layout === "vertical";
+  
   return (
-    <Card className="border-border/60">
+    <Card className="border-border/60 bg-card/40 backdrop-blur-sm">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
+        <CardTitle className="text-sm font-semibold tracking-tight text-foreground">
           {title}
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="h-[300px] w-full">
+        <div className="h-[320px] w-full">
           <ResponsiveContainer>
             <BarChart
               data={data}
               layout={layout}
-              margin={{ top: 8, right: 16, left: isVertical ? 24 : 0, bottom: 8 }}
+              margin={{ 
+                top: 15, 
+                right: isVertical ? 65 : 16, 
+                left: isVertical ? 0 : 0, 
+                bottom: 8 
+              }}
             >
               <CartesianGrid
                 strokeDasharray="3 3"
@@ -55,14 +62,17 @@ export function BarChartCard({
                     type="number"
                     tickFormatter={(v) => formatBRL(Number(v))}
                     stroke="var(--muted-foreground)"
-                    fontSize={11}
+                    fontSize={10}
+                    hide={true} // Hide X axis for clean Power BI look with LabelList
                   />
                   <YAxis
                     type="category"
                     dataKey={xKey}
                     stroke="var(--muted-foreground)"
                     fontSize={11}
-                    width={140}
+                    width={180}
+                    tickLine={false}
+                    axisLine={false}
                   />
                 </>
               ) : (
@@ -71,25 +81,36 @@ export function BarChartCard({
                     dataKey={xKey}
                     stroke="var(--muted-foreground)"
                     fontSize={11}
+                    tickLine={false}
                   />
                   <YAxis
                     tickFormatter={(v) => formatBRL(Number(v))}
                     stroke="var(--muted-foreground)"
-                    fontSize={11}
+                    fontSize={10}
+                    tickLine={false}
                   />
                 </>
               )}
               <Tooltip
-                cursor={{ fill: "var(--muted)" }}
+                cursor={{ fill: "var(--muted)", opacity: 0.3 }}
                 contentStyle={{
                   background: "var(--popover)",
                   border: "1px solid var(--border)",
                   borderRadius: 8,
                   fontSize: 12,
                 }}
-                formatter={(v: number) => [formatBRL(v), "Receita"]}
+                formatter={(v: number) => [formatBRL(v), "Consumo"]}
               />
-              <Bar dataKey={yKey} fill={color} radius={[6, 6, 0, 0]} />
+              <Bar dataKey={yKey} fill={color} radius={isVertical ? [0, 4, 4, 0] : [4, 4, 0, 0]} maxBarSize={24}>
+                {isVertical && (
+                  <LabelList
+                    dataKey={yKey}
+                    position="right"
+                    formatter={(v: number) => formatInt(v)}
+                    style={{ fontSize: 10, fill: "var(--foreground)", fontWeight: 500 }}
+                  />
+                )}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -97,3 +118,4 @@ export function BarChartCard({
     </Card>
   );
 }
+

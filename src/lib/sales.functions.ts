@@ -2,19 +2,33 @@ import { createServerFn } from "@tanstack/react-start";
 
 export type DataSource = "csv" | "database";
 
-export interface SaleRowDTO {
-  data: string;
-  produto: string;
-  categoria: string;
-  regiao: string;
-  preco: number;
+export interface InventoryMovementRowDTO {
+  key_centro: string;
+  nome_centro: string;
+  empresa: string;
+  nome_empreendimento: string;
+  cod_insumo: string;
+  cod_sub_grupo: string;
+  descricao_insumo: string;
+  unidade: string;
+  data_movimento: string;
+  classe: "E" | "S";
+  tipo_movimento: string;
+  tipo_documento: string;
+  numero_documento: string;
+  num_movimento: number;
   quantidade: number;
-  valor_total: number;
+  preco_unitario: number;
+  valor: number;
+  titulo_grupo: string;
+  titulo_subgrupo: string;
+  quantidade_estoque_atual: number;
+  valor_estoque_atual: number;
 }
 
 export interface SalesPayload {
   source: DataSource;
-  rows: SaleRowDTO[];
+  rows: InventoryMovementRowDTO[];
   available: { csv: boolean; database: boolean };
 }
 
@@ -23,22 +37,29 @@ export const getSales = createServerFn({ method: "GET" })
     source: (input?.source ?? "csv") as DataSource,
   }))
   .handler(async ({ data }): Promise<SalesPayload> => {
-    const { readSalesCsv } = await import("../server/csv-source.server");
-    const { readSalesFromDatabase } = await import(
+    const { readInventoryCsv } = await import("../server/csv-source.server");
+    const { readInventoryFromDatabase } = await import(
       "../server/database-source.server"
+    );
+
+    const isDbConfigured = !!(
+      process.env.DATABASE_URL ||
+      process.env.DB_HOST ||
+      process.env.DB_CONNECTION_STRING
     );
 
     const rows =
       data.source === "database"
-        ? await readSalesFromDatabase()
-        : await readSalesCsv();
+        ? await readInventoryFromDatabase()
+        : await readInventoryCsv();
 
     return {
       source: data.source,
       rows,
       available: {
         csv: true,
-        database: false, // flip to true once you wire a real DB connection
+        database: isDbConfigured,
       },
     };
   });
+
