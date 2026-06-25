@@ -4,6 +4,7 @@ import { useState } from "react";
 import { getSales, type DataSource } from "@/lib/sales.functions";
 import { KpiCard } from "@/features/dashboard/components/KpiCard";
 import { BarChartCard } from "@/features/dashboard/components/BarChartCard";
+import { MonthlyTrendCard } from "@/features/dashboard/components/MonthlyTrendCard";
 import { DataSourceSelector } from "@/features/dashboard/components/DataSourceSelector";
 import {
   byCategory,
@@ -115,12 +116,9 @@ function Dashboard() {
                 yKey="valor"
                 color="var(--chart-1)"
               />
-              <BarChartCard
-                title="Receita por mês"
+              <MonthlyTrendCard
+                title="Receita por mês (linha) + Acumulado (barra)"
                 data={months}
-                xKey="mes"
-                yKey="valor"
-                color="var(--chart-3)"
               />
             </section>
 
