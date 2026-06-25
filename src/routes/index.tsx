@@ -4,6 +4,7 @@ import { useState } from "react";
 import { getSales, type DataSource } from "@/lib/sales.functions";
 import { KpiCard } from "@/features/dashboard/components/KpiCard";
 import { BarChartCard } from "@/features/dashboard/components/BarChartCard";
+import { MonthlyTrendCard } from "@/features/dashboard/components/MonthlyTrendCard";
 import { DataSourceSelector } from "@/features/dashboard/components/DataSourceSelector";
 import {
   byCategory,
