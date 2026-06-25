@@ -60,8 +60,9 @@ export const getSales = createServerFn({ method: "GET" })
       rows,
       available: {
         csv: true,
-        database: isDbConfigured,
+        database: true, // Sempre habilitado para permitir testar a conexão e debugar erros na tela
       },
     };
+
   });
 
